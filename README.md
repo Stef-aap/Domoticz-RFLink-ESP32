@@ -13,5 +13,5 @@ In the meanwhile I've started with version R29, got it working, and improving it
 Some ideas that came up until now:
 - optimizing the order of the plugins
 - introducing a learning mode and a production mode
-- use the SI4432 as an transmitter for all frequencies
+- use an SI4432 as the transmitter for all frequencies
 - use WIFI connection to Domoticz
