@@ -1,12 +1,27 @@
-/*********************************************************************************************\
- * Convert HEX or DEC tring to unsigned long HEX, DEC
-\*********************************************************************************************/
-unsigned long str2int(char *string) {
-  return(strtoul(string,NULL,0));  
+
+
+
+// ***********************************************************************************
+// ***********************************************************************************
+char* String_2_Char ( String Line ){
+    if ( Line.length() != 0 ){
+        char *p = const_cast<char*>( Line.c_str());
+        return p;
+    }
 }
-/*********************************************************************************************\
- * Convert string to command code
-\*********************************************************************************************/
+
+// ***********************************************************************************
+// ***********************************************************************************
+unsigned long String_2_Long ( String Line ) {
+  unsigned long Result = 33; //strtouI ( String_2_Char ( Line ), NULL, 0 ) ;
+  return Result ;
+}
+
+
+
+// ***********************************************************************************
+// * Convert string to command code
+// ***********************************************************************************
 int str2cmd(char *command) {
     if(strcasecmp(command,"ON") == 0) return VALUE_ON;
     if(strcasecmp(command,"OFF") == 0) return VALUE_OFF;
@@ -14,16 +29,19 @@ int str2cmd(char *command) {
     if(strcasecmp(command,"ALLOFF") == 0) return VALUE_ALLOFF;
     return false;
 }
-/********************************************************************************************\
- * Convert unsigned long to float long through memory
-\*********************************************************************************************/
+
+// ***********************************************************************************
+// * Convert unsigned long to float long through memory
+// ***********************************************************************************
 float ul2float(unsigned long ul) {
     float f;
     memcpy(&f, &ul,4);
     return f;
 }
-/*********************************************************************************************/
-void PrintHex8(uint8_t *data, uint8_t length) { // prints 8-bit data in hex (lowercase)
+
+// ***********************************************************************************
+// ***********************************************************************************
+void PrintHex8 ( uint8_t *data, uint8_t length ) { // prints 8-bit data in hex (lowercase)
   char tmp[length*2+1];
   byte first ;
   int j=0;
@@ -41,7 +59,9 @@ void PrintHex8(uint8_t *data, uint8_t length) { // prints 8-bit data in hex (low
   tmp[length*2] = 0;
   Serial.print(tmp);
 }
-/*********************************************************************************************/
+
+// ***********************************************************************************
+// ***********************************************************************************
 // todo: make uppercase?  3a = 3 or 48 (0x30) = 0x33   >57 (0x39)   a>3a >39 >   +27 
 void PrintHexByte(uint8_t data) { // prints 8-bit value in hex (single byte) 
   char tmp[3];
@@ -56,5 +76,4 @@ void PrintHexByte(uint8_t data) { // prints 8-bit value in hex (single byte)
   tmp[2] = 0;
   Serial.print(tmp);
 }
-/*********************************************************************************************/
 
