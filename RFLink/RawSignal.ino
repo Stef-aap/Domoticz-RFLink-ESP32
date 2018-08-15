@@ -1,17 +1,12 @@
-/*********************************************************************************************/
-boolean ScanEvent(void) {                                     // Deze routine maakt deel uit van de hoofdloop en wordt iedere 125uSec. doorlopen
-  unsigned long Timer = millis() + SCAN_HIGH_TIME;           // +50 msec
-
-  while ( ( millis() < Timer ) || ( millis() < RepeatingTimer ) ) {
-    if ( FetchSignal (PIN_RF_RX_DATA, HIGH ) ) {
-      if ( RFL_Protocols.Decode () ) {
-        RepeatingTimer = millis() + SIGNAL_REPEAT_TIME ;      // +500 msec
-        return true;
-      }
+bool ScanEvent () { 
+  if ( FetchSignal () ) {
+    if ( RFL_Protocols.Decode () ) {
+      return true;
     }
   }
   return false;
 }
+
 
 
 // ***********************************************************************************
@@ -19,7 +14,7 @@ boolean ScanEvent(void) {                                     // Deze routine ma
 // ***********************************************************************************
 unsigned long FETCH_Pulse_Plus_1 ;  //  here 3320,  inside 3540
 // ***********************************************************************************
-boolean FetchSignal ( byte DataPin, boolean StateSignal ) {
+boolean FetchSignal () {
   // ************************************************************
   //   LoopsPerMilli      maxloops       timeout [msec)
   //      500               3500          0.8 ... 1.7  (zeer wisselend)
@@ -64,7 +59,7 @@ boolean FetchSignal ( byte DataPin, boolean StateSignal ) {
     // als het nivo laag is, wacht tot het einde van dit laag nivo
     // ************************************************************
 //    while ( ( digitalRead ( PIN_RF_RX_DATA ) == Start_Level ) ) ;
-    while ( ( digitalRead ( PIN_RF_RX_DATA ) == Start_Level ) && ( millis() < Start_Time ) ) ;
+    while ( ( digitalRead ( RECEIVE_PIN ) == Start_Level ) && ( millis() < Start_Time ) ) ;
     
     // ************************************************************
     // hier is het nivo hoog, wacht totdat het naar laag springt
@@ -74,15 +69,15 @@ boolean FetchSignal ( byte DataPin, boolean StateSignal ) {
     //   maar vanwege de herhalende sequences zullen we toch regelmatig de juiste waarde meten
     // ************************************************************
     FETCH_Pulse_Plus_1 = micros() ;
-//    while ( ( digitalRead ( PIN_RF_RX_DATA ) != Start_Level ) ) ;
-    while ( ( digitalRead ( PIN_RF_RX_DATA ) != Start_Level ) && ( millis() < Start_Time ) ) ;
+//    while ( ( digitalRead ( RECEIVE_PIN ) != Start_Level ) ) ;
+    while ( ( digitalRead ( RECEIVE_PIN ) != Start_Level ) && ( millis() < Start_Time ) ) ;
     
     // ************************************************************
     // Wacht tot het einde van de laag periode
     // ************************************************************
     LastPulse = micros() ;
-//    while ( ( digitalRead ( PIN_RF_RX_DATA ) == Start_Level ) ) ;
-    while ( ( digitalRead ( PIN_RF_RX_DATA ) == Start_Level ) && ( millis() < Start_Time ) ) ;
+//    while ( ( digitalRead ( RECEIVE_PIN ) == Start_Level ) ) ;
+    while ( ( digitalRead ( RECEIVE_PIN ) == Start_Level ) && ( millis() < Start_Time ) ) ;
     PulseLength = micros() - LastPulse;
 
     // ************************************************************
@@ -111,7 +106,7 @@ boolean FetchSignal ( byte DataPin, boolean StateSignal ) {
     // ************************************************************
     numloops  = 0 ;
     LastPulse = micros () ;
-    while ( ( digitalRead ( PIN_RF_RX_DATA ) == Start_Level ) ^ Toggle )
+    while ( ( digitalRead ( RECEIVE_PIN ) == Start_Level ) ^ Toggle )
       if ( numloops++ == maxloops ) break ;
     PulseLength = micros() - LastPulse; 
     
@@ -149,12 +144,18 @@ boolean FetchSignal ( byte DataPin, boolean StateSignal ) {
   // We hebben nu het einde van een signaal bereikt
   //   als we genoeg pulsen hebben,
   //     return true
+  // KAKU has a long startperiod of 2500 usec
   // ************************************************************
-  if ( ( RawCodeLength >= MIN_RAW_PULSES ) && ( RawCodeLength <= MAX_RAW_PULSES ) ) {
+  if ( ( RawCodeLength >= MIN_RAW_PULSES ) && 
+       ( RawCodeLength <= MAX_RAW_PULSES ) &&
+       ( RawSignal.Min > 150 ) &&
+       ( RawSignal.Max < 3000 ) ) {
     RawSignal.Mean = RawSignal.Mean / ( RawCodeLength - 3 ) ;
     RawSignal.Number   = RawCodeLength-1 ;            // Number of received pulse times (pulsen *2)
     RawSignal.Pulses [ RawSignal.Number + 1 ] = 0 ;   // Last element contains the timeout. 
     RawSignal.Time = millis() ;                       // Time the RF packet was received (to keep track of retransmits
+//Serial.print ( "D" ) ;
+//Serial.print ( RawCodeLength ) ;
     return true ;
   } 
 
@@ -170,46 +171,4 @@ boolean FetchSignal ( byte DataPin, boolean StateSignal ) {
 
 
 
-/*********************************************************************************************/
-// RFLink Board specific: Generate a short pulse to switch the Aurel Transceiver from TX to RX mode.
-void RFLinkHW( void ) {
-     delayMicroseconds(36);
-     digitalWrite(PIN_BSF_0,LOW);
-     delayMicroseconds(16);
-     digitalWrite(PIN_BSF_0,HIGH);
-     return;
-}
-/*********************************************************************************************\
- * Send rawsignal buffer to RF
-\*********************************************************************************************/
-void RawSendRF(void) {
-//  int x;
-//  digitalWrite(PIN_RF_RX_VCC,LOW);                                        // Spanning naar de RF ontvanger uit om interferentie met de zender te voorkomen.
-//  digitalWrite(PIN_RF_TX_VCC,HIGH);                                       // zet de 433Mhz zender aan
-//  delayMicroseconds(TRANSMITTER_STABLE_DELAY);                            // short delay to let the transmitter become stable (Note: Aurel RTX MID needs 500µS/0,5ms)
-//  
-//  // LET OP: In de Arduino versie 1.0.1 zit een bug in de funktie delayMicroSeconds(). Als deze wordt aangeroepen met een nul dan zal er
-//  // een pause optreden van 16 milliseconden. Omdat het laatste element van RawSignal af sluit met een nul (omdat de space van de stopbit 
-//  // feitelijk niet bestaat) zal deze bug optreden. Daarom wordt deze op 1 gezet om de bug te omzeilen. 
-//  RawSignal.Pulses[RawSignal.Number]=1;
-//
-//  for(byte y=0; y<RawSignal.Repeats; y++) {                               // herhaal verzenden RF code
-//     x=1;
-//     noInterrupts();
-//     while(x<RawSignal.Number) {
-//        digitalWrite(PIN_RF_TX_DATA,HIGH);
-////??        delayMicroseconds(RawSignal.Pulses[x++]*RawSignal.Multiply-5);    // min een kleine correctie  
-//        digitalWrite(PIN_RF_TX_DATA,LOW);
-////??        delayMicroseconds(RawSignal.Pulses[x++]*RawSignal.Multiply-7);    // min een kleine correctie
-//     }
-//     interrupts();
-//     if (y+1 < RawSignal.Repeats) delay(RawSignal.Delay);                 // Delay buiten het gebied waar de interrupts zijn uitgeschakeld! Anders werkt deze funktie niet.
-//  }
-//
-//  delayMicroseconds(TRANSMITTER_STABLE_DELAY);                            // short delay to let the transmitter become stable (Note: Aurel RTX MID needs 500µS/0,5ms)
-//  digitalWrite(PIN_RF_TX_VCC,LOW);                                        // zet de 433Mhz zender weer uit
-//  digitalWrite(PIN_RF_RX_VCC,HIGH);                                       // Spanning naar de RF ontvanger weer aan.
-//  RFLinkHW();
-}
-/*********************************************************************************************/
 

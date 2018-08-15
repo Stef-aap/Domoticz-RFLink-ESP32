@@ -12,7 +12,8 @@ class _RFL_Protocol_KAKU : public _RFL_Protocol_BaseClass {
     // Creator, 
     // ***********************************************************************
     _RFL_Protocol_KAKU () {
-      Name = "KAKU" ;
+      //Name = "KAKU" ;
+      Name = "NewKaku" ;
     }
  
     // ***********************************************************************
@@ -94,7 +95,7 @@ if(i<131) {                                              // alle bits die tot de
       //==================================================================================
       // Prevent repeating signals from showing up
       //==================================================================================
-      if(SignalHash!=SignalHashPrevious || (RepeatingTimer+700<millis() ) || SignalCRC != bitstream ) { // 1000
+      if(SignalHash!=SignalHashPrevious || ( millis() > 700 + Last_Detection_Time ) || SignalCRC != bitstream ) { // 1000
          // not seen the RF packet recently
          SignalCRC=bitstream;
       } else {
@@ -134,13 +135,29 @@ if(i<131) {                                              // alle bits die tot de
       if ( ( bitstream & 0x10 ) != 0 ) On_Off = "ON" ; 
       int Switch = bitstream & 0x0F ;
       unsigned long Id = bitstream >> 5 ;
-      sprintf ( pbuffer, "20;%02X;%s;ID=%05X;SWITCH=%0X;CMD=%s;", PKSequenceNumber++, Name.c_str(), Id, Switch, On_Off.c_str() ) ; 
-      Serial.println ( pbuffer ) ;
+
+      //sprintf ( pbuffer, "20;%02X;%s;ID=%05X;SWITCH=%0X;CMD=%s;", PKSequenceNumber++, Name.c_str(), Id, Switch, On_Off.c_str() ) ; 
+      //Serial.println ( pbuffer ) ;
+
+      sprintf ( pbuffer, "%s;ID=%05X;", Name.c_str(), Id ) ; 
+      if ( Unknown_Device ( pbuffer ) ) return false ;
+/*       if ( ( Learning_Mode == 0 ) && ( RFLink_File.Known_Devices.indexOf ( pbuffer ) < 0 ) ) {
+//      if ( ( Learning_Mode == 0 ) && ( Known_Devices.indexOf ( pbuffer ) < 0 ) ) {
+          Serial.print   ( "Unknown Device: 12;" ) ;
+Serial.println ( pbuffer ) ;
+        return false ;
+      }  
+ */      
+      Serial.print   ( PreFix ) ;
+      Serial.print   ( pbuffer ) ;
+      sprintf ( pbuffer2, "SWITCH=%0X;CMD=%s;", Switch, On_Off.c_str() ) ; 
+      Serial.println ( pbuffer2 ) ;
+      
+      
       
 //Serial.println ( bitstream, HEX ) ;
       
       // ----------------------------------
-      RawSignal.Repeats=true;                              // suppress repeats of the same RF packet         
       RawSignal.Number=0;
       return true;
 	  
@@ -153,10 +170,6 @@ if(i<131) {                                              // alle bits die tot de
 
       unsigned long Data  = ( ID << 5 ) | Switch ;
       if ( On == "ON" ) Data = Data | 0x10 ;
-      
-//Serial.print ( "Sens kaku: ");
-//Serial.println(Data,HEX);
-      
       int           NData = 32 ;
       unsigned long Mask ;
       bool          Zero ;
@@ -172,7 +185,7 @@ if(i<131) {                                              // alle bits die tot de
         Mask = 0x01 << ( NData -1 ) ;
 
         // *************************
-        // Start Bit = T, 10T
+        // Start Bit = T, 10*T
         // *************************
         digitalWrite ( TRANSMIT_PIN, HIGH ) ;
         delayMicroseconds (      uSec ) ;
@@ -185,39 +198,39 @@ if(i<131) {                                              // alle bits die tot de
         #define NT 4     // 3,4,5 all work correctly
         for ( int i=0; i<NData; i++ ) {
           Zero = ( Data & Mask ) == 0 ;
-          if ( Zero ) {
-            digitalWrite ( TRANSMIT_PIN, HIGH ) ;
-            delayMicroseconds (      uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, LOW ) ;
-            delayMicroseconds (      uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, HIGH ) ;
-            delayMicroseconds (      uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, LOW ) ;
-            delayMicroseconds ( NT * uSec ) ;
-          } else {
-            digitalWrite ( TRANSMIT_PIN, HIGH ) ;
-            delayMicroseconds (      uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, LOW ) ;
-            delayMicroseconds ( NT * uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, HIGH ) ;
-            delayMicroseconds (      uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, LOW ) ;
-            delayMicroseconds (      uSec ) ;
+          if ( Zero ) {                             // T, T, T, 4*T
+            digitalWrite      ( TRANSMIT_PIN, HIGH ) ;
+            delayMicroseconds (      uSec          ) ;
+            digitalWrite      ( TRANSMIT_PIN, LOW  ) ;
+            delayMicroseconds (      uSec          ) ;
+            digitalWrite      ( TRANSMIT_PIN, HIGH ) ;
+            delayMicroseconds (      uSec          ) ;
+            digitalWrite      ( TRANSMIT_PIN, LOW  ) ;
+            delayMicroseconds ( NT * uSec          ) ;
+          } else {                                  // T, 4*T, T, T
+            digitalWrite      ( TRANSMIT_PIN, HIGH ) ;
+            delayMicroseconds (      uSec          ) ;
+            digitalWrite      ( TRANSMIT_PIN, LOW  ) ;
+            delayMicroseconds ( NT * uSec          ) ;
+            digitalWrite      ( TRANSMIT_PIN, HIGH ) ;
+            delayMicroseconds (      uSec          ) ;
+            digitalWrite      ( TRANSMIT_PIN, LOW  ) ;
+            delayMicroseconds (      uSec          ) ;
           }
-          
           // *************************
           // go to the next bit
           // *************************
           Mask = Mask >> 1 ;
         }
         // *************************
-        // Stop Bit = T, 39T
+        // Stop Bit = T, 39*T
         // *************************
         digitalWrite ( TRANSMIT_PIN, HIGH ) ;
         delayMicroseconds (      uSec ) ;
         digitalWrite ( TRANSMIT_PIN, LOW ) ;
         delayMicroseconds ( 39 * uSec ) ;
       }
+      return true ;
     }
     
     

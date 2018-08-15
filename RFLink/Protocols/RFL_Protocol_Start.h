@@ -18,10 +18,16 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
     // ***********************************************************************
     // ***********************************************************************
     bool Decode (  ) {
-      if ( Learning_Mode == 0 ) {
+    
+      // *********************************************
+      // Production Mode
+      // The Real Learning Mode
+      // Learning_Mode = 2 detection of the first protocol with statistics
+      // Learning_Mode = 3 detection of all protocols with statistics
+      // *********************************************
+      if ( Learning_Mode <= 3 ) {
         return false ;
       }
-      
     
     
 /*  wordt al in RAW gedaan
@@ -29,7 +35,7 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
       // if sequence is too short
       // ********************************************
       if ( RawSignal.Number < 26 ) {
-    		if ( Learning_Mode >= 2 ) Serial.print ( '<' ) ;
+    		if ( Learning_Mode >= 3 ) Serial.print ( '<' ) ;
         RawSignal.Number = 0 ;
 		    return true; //false ;        
       }
@@ -38,7 +44,7 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
       // if sequence is too long
       // ********************************************
       if ( RawSignal.Number > 150 ) {
-	    	if ( Learning_Mode >= 2 ) Serial.print ( '>' ) ;
+	    	if ( Learning_Mode >= 3 ) Serial.print ( '>' ) ;
         RawSignal.Number = 0 ;
 		    return true;
       }
@@ -48,16 +54,16 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
       // Display Times of each puls, 
       // in LM=4 times are rounded at 30 usec
       // ********************************************
-      if ( ( Learning_Mode == 3 ) || ( Learning_Mode == 4 ) ) {             
+      if ( ( Learning_Mode == 4 ) || ( Learning_Mode == 5 ) ) {             
         int Time ;
         sprintf ( pbuffer, "20;%02X;", PKSequenceNumber++ ) ;
         Serial.print ( pbuffer ) ;
         Serial.print ( F( "DEBUG_Start;Pulses=" ) ) ;
-        Serial.print ( RawSignal.Number ) ;
+        Serial.print ( RawSignal.Number - 3 ) ;
         Serial.print ( F ( ";Pulses(uSec)=" )) ;
         for ( int x=0; x<RawSignal.Number+1; x++ ) {
           Time = RawSignal.Pulses[x] ;
-          if ( Learning_Mode == 4 ) {
+          if ( Learning_Mode == 5 ) {
             Time = 30 * ( Time / 30 ) ;
           }
           Serial.print ( Time ) ; 
@@ -69,7 +75,7 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
 
 
       // ********************************************
-      else if ( Learning_Mode == 5 ) {
+      else if ( Learning_Mode == 6 ) {
       // ********************************************
         String BitString = "" ;
         unsigned long P1 ;
@@ -94,9 +100,8 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
         sprintf ( pbuffer, "\n20;%02X;", PKSequenceNumber++ ) ;
         Serial.print ( pbuffer ) ;
         Serial.print ( F( "DEBUG_Start;Pulses=" ) ) ;
-        Serial.print ( RawSignal.Number ) ;
+        Serial.print ( RawSignal.Number - 3 ) ;
         Serial.print ( F ( ";Pulses(uSec)=" )) ;
-        //PrintHex8 ( RawSignal.Pulses, RawSignal.Number + 1 ) ;
 
         Serial.print ( "Min=") ;
         Serial.print ( RawSignal.Min ) ;
@@ -143,6 +148,23 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
         return true;
       }
 
+      
+      // ********************************************
+      else if ( Learning_Mode == 7 ) {
+      // ********************************************
+        Serial.print ( "\nNPuls=" ) ;
+        Serial.print ( RawSignal.Number -3 ) ;
+        Serial.print ( "   Min=") ;
+        Serial.print ( RawSignal.Min ) ;
+        Serial.print ( "   Max=") ;
+        Serial.print ( RawSignal.Max ) ;
+        Serial.print ( "   Mean=") ;
+        Serial.print ( RawSignal.Mean ) ;
+        Serial.print ( "   " ) ;
+        return false ;
+      }
+      
+      
 
       // ********************************************
       // ********************************************
@@ -203,7 +225,7 @@ class _RFL_Protocol_Start : public _RFL_Protocol_BaseClass {
       // END of protocol Start, if the incoming packet is not oversized and resume normal processing of plugins
       // ***************************************************
 //Serial.print ( "H");
-//Serial.print ( RawSignal.Number ) ;
+//Serial.print ( RawSignal.Number - 3 ) ;
       if (RawSignal.Number < OVERSIZED_LIMIT) return false;
       
 

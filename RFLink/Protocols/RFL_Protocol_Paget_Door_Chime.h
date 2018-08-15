@@ -56,7 +56,7 @@ class _RFL_Protocol_Paget_Door_Chime : public _RFL_Protocol_BaseClass {
       // Prevent repeating signals from showing up
       //==================================================================================
       if ( ( SignalHash != SignalHashPrevious ) || 
-           ( millis() > 100 + RepeatingTimer )  || 
+           ( millis() > 700 + Last_Detection_Time )  || 
            ( SignalCRC != BitStream ) ) { 
          // not seen the RF packet recently
          SignalCRC = BitStream;

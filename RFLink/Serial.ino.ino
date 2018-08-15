@@ -1,10 +1,42 @@
 
+// ****************************************************************************************
+// LEARNING_MODE
+// ****************************************************************************************
+String Learning_Modes_Text = "\
+-----  Learning_Modes  -----\n\
+0 : Production Mode\n\
+1 : Real Learning Mode\n\
+2 : one detection  + statistics\n\
+3 : all detections + statistics\n\
+4 : display pulstime\n\
+5 : display pulstime rounded at 30 usec\n\
+6 : Statistics, Binairy and Hex Results\n\
+7 : Statistics followed, by normal detection\n\
+8 : Transmit a predefined sequence" ;
+
+String Commands_Text = "\n\
+10;LIST;          // list all commands\n\
+10;PING;          // return PONG\n\
+10;REBOOT;        // reboot RFLink\n\
+10;VERSION;       // displays version information\n\
+10;RF_Command;    // Send an RF package\n\
+10;DEBUG=x;       // Enter Learning/Debug Mode\n\
+12;Name;ID;       // In Learning_Mode=1 add this device\n\
+X                 // In Learning_Mode=1 add the last seen Device\n\
+19;DIR;           // Directory of the file-system\n\
+19;DUMP;Filename; // Print the content of the file\n\
+19:DEL;Filename;  // Delete the file\n\
+19:CLEAR;         // Delete all registered Devices\n\
+11;<LINE>         // Complete <LINE> is echoed" ;
+
+
 // ***********************************************************************************
 // ***********************************************************************************
 //bool On_Off_Command () {
 //  byte kar = InputBuffer_Serial [ SerialInByteCounter - 3 ] ;
 //  return kar == 'N' || kar == 'n' ;
 //}
+
 
 // ***********************************************************************************
 // ***********************************************************************************
@@ -13,33 +45,52 @@ void Handle_Serial () {
   // If a complete line is received
   // *********************************************
   if ( Serial_Command ) {
+
+    // *********************************************
+    // *********************************************
+    if ( ( InputBuffer_Serial[0] == 'X' ) && ( Learning_Mode == 1 ) ) {
+      if ( Unknown_Device_ID.length() > 0 ) {
+        RFLink_File.Add ( Unknown_Device_ID ) ;
+        RFLink_File.Print () ;
+      }
+    }
+
+    // *********************************************
+    // *********************************************
+    else if ( ( InputBuffer_Serial[0] == 'Y' ) && ( Learning_Mode == 1 ) ) {
+      if ( Unknown_Device_ID.length() > 0 ) {
+        RFLink_File.Add ( "-" + Unknown_Device_ID ) ;
+        RFLink_File.Print () ;
+      } 
+//      Unknown_Device_ID = Randomize_Device_ID ( Unknown_Device_ID ) ;
+//      if ( Unknown_Device_ID.length() > 0 ) {
+//        Serial.println (">>>");
+//        Serial.println ( Unknown_Device_ID ) ;
+//        Serial.println ("<<<");
+//        //RFLink_File.Add ( Unknown_Device_ID ) ;
+//        //RFLink_File.Print () ;
+//      }
+    }
+
     
     // *********************************************
     // 10;   // COMMAND
     // *********************************************
-    if ( strncmp ( InputBuffer_Serial, "10;", 3 ) == 0 ) {  
+    else if ( strncmp ( InputBuffer_Serial, "10;", 3 ) == 0 ) {  
 
       // *********************************************
       // LIST all Commands
       // *********************************************
       if ( strcasecmp ( InputBuffer_Serial+3, "LIST;" ) == 0 ) {
-        sprintf ( InputBuffer_Serial, "20;%02X;LIST;", PKSequenceNumber++ ) ;
-        Serial.println ( InputBuffer_Serial ) ; 
-        Serial.println ( "10;LIST;         // list all commands"            );
-        Serial.println ( "10;PING;         // return PONG"                  );
-        Serial.println ( "10;REBOOT;       // reboot RFLink"                );
-        Serial.println ( "10;VERSION;      // displays version information" );
-        Serial.println ( "10;DEBUG=x   ;   //" );
-        Serial.println ( "10;RFUDENUG=ON;  // " );
-        Serial.println ( "10;QRFDEBUG=ON;  // " );
-        Serial.println ( "10;OPDRACHT ....;" );
-        Serial.println ( "11;LEARN ....;" );
-        Serial.println ();
-        Serial.println ( Learning_Modes ) ;
+        Serial.printf  ( InputBuffer_Serial, "20;%02X;LIST;\r\n", PKSequenceNumber++ ) ;
+        Serial.println ( Commands_Text ) ;
+        Serial.println ( Learning_Modes_Text ) ;
       }
 
       // *********************************************
-      // PING
+      //   PING
+      // Very Important, because this is used by Domoticz
+      //    to see if the RFLink is working properly
       // *********************************************
       else if ( strcasecmp ( InputBuffer_Serial+3, "PING;" ) == 0 ) {
         sprintf ( InputBuffer_Serial, "20;%02X;PONG;", PKSequenceNumber++ ) ;
@@ -57,19 +108,33 @@ void Handle_Serial () {
       // VERSION
       // *********************************************
       else if ( strcasecmp ( InputBuffer_Serial+3, "VERSION;" ) == 0 ) {
-        sprintf ( InputBuffer_Serial, "20;%02X;VER=1.1;REV=28;BUILD=%03d;", PKSequenceNumber++, BUILDNR ) ;
-        Serial.println ( InputBuffer_Serial ) ; 
+        Serial.printf ( "20;%02X;VER=%s;REV=%02x;BUILD=%02x;\r\n", PKSequenceNumber++, Version, Revision, Build ) ; 
       }
 
       // *********************************************
+      // DEBUG = ...
       // *********************************************
       else if ( strncasecmp ( InputBuffer_Serial+3, "DEBUG=", 6 ) == 0 ) {
         byte kar = InputBuffer_Serial [9] ;
         Learning_Mode = kar - 0x30 ;
         sprintf ( InputBuffer_Serial, "20;%02X;DEBUG=%i;", PKSequenceNumber++, Learning_Mode ) ;
         Serial.println ( InputBuffer_Serial ) ; 
-
-        if ( Learning_Mode == 8 ) {
+ 
+        // *********************************************
+        // *********************************************
+        if ( Learning_Mode > 0 ) {
+          Serial.println ( Learning_Modes_Text ) ;
+        }
+        
+        // *********************************************
+        // *********************************************
+        if ( Learning_Mode == 1 ) {
+          RFLink_File.Print () ;
+        }
+        
+        // *********************************************
+        // *********************************************
+        else if ( Learning_Mode == 8 ) {
 
           //20;7C;EV1527;ID=005DF;SWITCH=01;CMD=ON;
           //20;7D;EV1527;ID=005DF;SWITCH=01;CMD=ON;
@@ -113,26 +178,79 @@ void Handle_Serial () {
       // Handle Generic Commands / Translate protocol data into Nodo text commands 
       // *********************************************
       else {
-        // check plugins
-        if ( InputBuffer_Serial [ SerialInByteCounter - 1 ] == ';' ) { 
-          InputBuffer_Serial [ SerialInByteCounter - 1 ] = 0 ;         // remove last ";" char
+        //10;EV1527;0005df;2;ON
+        if ( RFL_Protocols.Home_Command ( InputBuffer_Serial ) ){
+          Serial.printf ( "20;%02X;OK;\r\n", PKSequenceNumber++ ) ;  
         }
-
-//      if ( PluginTXCall ( 0, InputBuffer_Serial ) ) {
-//        ValidCommand = 1 ;
-//      } else {
-//        // Answer that an invalid command was received?
-//        ValidCommand=2;
-//      }
-        
       }
     
     }
+
+    // *********************************************
+    // 12; if Learning_Mode 1, Add New Device
+    // *********************************************
+    else if ( ( Learning_Mode == 1 ) && 
+              ( strncmp ( InputBuffer_Serial, "12;", 3 ) == 0 )) {  
+      String Command = String ( InputBuffer_Serial ) ;
+      int x1 = Command.indexOf ( ";", 3 ) ;
+      x1     = Command.indexOf ( ";", x1+1 ) ;
+      String New = Command.substring ( 3, x1+1 ) ;
+
+      RFLink_File.Add ( New ) ;
+      RFLink_File.Print () ;
+    }
+
+    // *********************************************
+    // 19; System Commands
+    // *********************************************
+    else if ( strncmp ( InputBuffer_Serial, "19;", 3 ) == 0 ) {  
+      String Command = String ( InputBuffer_Serial ) ;
+      int    x1      = Command.indexOf   ( ";", 3 ) ;
+      String CMD     = Command.substring ( 3, x1 ) ;
+      int    x2      = Command.indexOf   ( ";", x1+1 ) ;
+      String ARG     = Command.substring ( x1+1, x2) ;
+      String Rest    = Command.substring ( x1+1 ) ;
+
+      //Serial.println ( "cmd19" );
+      //Serial.println ( CMD ) ;
+      //Serial.println ( ARG ) ;
+
+      if ( CMD.equalsIgnoreCase ( "DIR" ) ) {
+        RFLink_File.Dir () ;
+      } 
+      else if ( CMD.equalsIgnoreCase ( "DUMP" ) ) {
+        RFLink_File.Dump ( ARG ) ;
+      }
+      else if ( CMD.equalsIgnoreCase ( "DEL" ) ) {
+        RFLink_File.Delete ( ARG ) ;
+      }
+      else if ( CMD.equalsIgnoreCase ( "CLEAR" ) ) {
+        RFLink_File.Clear () ;
+      }
+      else if ( CMD.equalsIgnoreCase ( "REMOVE" ) ) {
+        RFLink_File.Remove ( Rest ) ;
+        RFLink_File.Print () ;
+      }
+    }
+    
+    // *********************************************
+    // 11; Echo the complete Line (without the preceeding "11;"
+    // *********************************************
+    else if ( strncmp ( InputBuffer_Serial, "11;", 3 ) == 0 ) {  
+      String Command = String ( InputBuffer_Serial ) ;
+      Serial.print ( Command.substring ( 3, -1 ) + "\r\n" ) ;      
+    }
+
+    
     // *********************************************
     // *********************************************
     Serial_Command      = false ;  
     SerialInByteCounter = 0 ;  
   } 
+
+
+
+  
   // *********************************************
   // Collect serial bytes until "\n" is detected
   // *********************************************

@@ -7,6 +7,23 @@
 #include <vector>
 
 
+// ***********************************************************************************
+// ***********************************************************************************
+unsigned long HexString_2_Long ( String HexString ) {
+  return ( strtoul ( HexString.c_str(), NULL, HEX ) ) ; 
+//  unsigned long Value = 0 ;
+//  int           Nibble ;
+//  for ( int i = 0; i < HexString.length(); i++ ) {
+//    Nibble = int ( HexString.charAt(i) ) ;
+//    if ( Nibble >= 48 && Nibble <= 57  ) Nibble = map ( Nibble, 48, 57,  0,  9  ) ;
+//    if ( Nibble >= 65 && Nibble <= 70  ) Nibble = map ( Nibble, 65, 70,  10, 15 ) ;
+//    if ( Nibble >= 97 && Nibble <= 102 ) Nibble = map ( Nibble, 97, 102, 10, 15 ) ;
+//    Nibble = constrain ( Nibble, 0, 15 );
+//    Value = ( Value * 16 ) + Nibble ;
+//  }
+//  return Value;
+} 
+
 // ****************************************************************************
 // Here all available Protocols are included
 //   and the base class, from which all Protocols should be derived.
@@ -67,9 +84,9 @@ class _RFL_Protocols {
     // ***********************************************************************
     // ***********************************************************************
     void loop () {
-      for ( auto RFL_Protocol:_RFL_Protocol_List ){
-        RFL_Protocol->loop () ;   
-      }
+      //for ( auto RFL_Protocol:_RFL_Protocol_List ){
+      //  RFL_Protocol->loop () ;   
+      //}
     }
 
     // ***********************************************************************
@@ -102,7 +119,10 @@ class _RFL_Protocols {
       String Switch_String = CommandLine.substring ( x1, x2 ) ;
       int Switch = Switch_String.toInt () ;
       Switch = (int) HexString_2_Long ( Switch_String ) ;
-      
+
+      // *********************************************
+      // geen probleem als de ; op het einde ontbreekt
+      // *********************************************
       x1 = x2 +1 ;
       x2  = CommandLine.indexOf ( ";", x1 ) ;
       String On_Off = CommandLine.substring ( x1, x2 ) ;
@@ -129,6 +149,8 @@ class _RFL_Protocols {
     // ***********************************************************************
     // ***********************************************************************
     boolean Decode () {
+      sprintf ( PreFix, "20;%02X;", PKSequenceNumber ) ; 
+
       // *****************************************************************
       // *****************************************************************
       if ( Learning_Mode == 0 ) {
@@ -137,9 +159,9 @@ class _RFL_Protocols {
             // ****************************************************
             // do some housekeeping
             // ****************************************************
-//            RawSignal.Repeats = true ;    // suppress repeats of the same RF packet
-RawSignal.Repeats = false ;
             RawSignal.Number  = 0 ;
+            PKSequenceNumber += 1 ;
+            Last_Detection_Time = millis () ;
             return true ;
           }
         }  
@@ -147,31 +169,55 @@ RawSignal.Repeats = false ;
       } 
       // *****************************************************************
       // *****************************************************************
-      else if ( ( Learning_Mode == 1 ) || ( Learning_Mode == 2 ) ){
+      else if ( Learning_Mode == 1 ) {
+        for ( auto RFL_Protocol:_RFL_Protocol_List ){
+          if ( RFL_Protocol->Decode () ) {
+            // ****************************************************
+            // do some housekeeping
+            // ****************************************************
+            RawSignal.Number  = 0 ;
+            PKSequenceNumber += 1 ;
+            Last_Detection_Time = millis () ;
+            return true ;
+          }
+        }  
+        return false ;
+      } 
+      // *****************************************************************
+      // *****************************************************************
+      else if ( ( Learning_Mode == 2 ) || ( Learning_Mode == 3 ) ){
         int Found = 0 ;
-        int S_Len = 0 ;
-              S_Len = RawSignal.Number ;
+        int S_Len = RawSignal.Number - 3 ;
         for ( auto RFL_Protocol:_RFL_Protocol_List ){
           if ( RFL_Protocol->Decode () ) {
             if ( RFL_Protocol->Name != "Start" ) {
             }
             if ( ( RFL_Protocol->Name != "Start" ) && ( RFL_Protocol->Name != "Finish" ) ) {
-              Serial.print   ( "LM=" ) ;
-              Serial.print   ( Learning_Mode ) ;      
-              Serial.print   ( "    Protocol=" ) ;
+              Serial.print   ( "LM="              ) ;
+              Serial.print   ( Learning_Mode      ) ;      
+              Serial.print   ( "    Protocol="    ) ;
               Serial.print   ( RFL_Protocol->Name ) ;      
-              Serial.print   ( "    Len=" ) ;
-              Serial.println ( S_Len ) ;
+              Serial.print   ( "    Len="         ) ;
+              Serial.print   ( S_Len              ) ;
+              
+              Serial.print   ( "    Min="         ) ;
+              Serial.print   ( RawSignal.Min      ) ;
+              Serial.print   ( "   Max="          ) ;
+              Serial.print   ( RawSignal.Max      ) ;
+              Serial.print   ( "   Mean="         ) ;
+              Serial.println ( RawSignal.Mean     ) ;
+
               Found += 1 ;
             }
-            if ( Learning_Mode == 1 ) {
+            if ( Learning_Mode == 2 ) {
               return true;
             }
             RawSignal.Number = S_Len ;  // is cleared after a valid detection
           }
         }  
         if ( Found > 0 ) {
-          Serial.println ( "--------") ;
+          Serial.print   ( "------------ FOUND = ") ;
+          Serial.println ( Found ) ;
           return true ;
         }
         return false ;
@@ -183,7 +229,6 @@ RawSignal.Repeats = false ;
        
         for ( auto RFL_Protocol:_RFL_Protocol_List ){
           if ( RFL_Protocol->Decode () ) {
-            RawSignal.Repeats = false ;  
             RawSignal.Number  = 0 ;
             return true ;
           }

@@ -52,7 +52,7 @@ class _RFL_Protocol_EV1527 : public _RFL_Protocol_BaseClass {
       // Prevent repeating signals from showing up
       //==================================================================================
       if ( ( SignalHash != SignalHashPrevious ) || 
-           ( millis() > 100 + RepeatingTimer )  || 
+           ( millis() > 700 + Last_Detection_Time )  || 
            ( SignalCRC != bitstream ) ) { 
          // not seen the RF packet recently
          SignalCRC = bitstream;
@@ -92,7 +92,9 @@ class _RFL_Protocol_EV1527 : public _RFL_Protocol_BaseClass {
         Device        = "PT2262" ;       
         String On_Off = "OFF" ;
         if ( ( bitstream & 0x03 ) != 0 ) On_Off = "ON" ; 
-        sprintf ( pbuffer, "20;%02X;%s;ID=%05X;SWITCH=01;CMD=%s;", PKSequenceNumber++, Device.c_str(), Id, On_Off.c_str() ) ; 
+        //sprintf ( pbuffer, "20;%02X;%s;ID=%05X;SWITCH=01;CMD=%s;", PKSequenceNumber++, Device.c_str(), Id, On_Off.c_str() ) ; 
+        sprintf ( pbuffer , "%s;ID=%05X;", Device.c_str(), Id ) ; 
+        sprintf ( pbuffer2, "SWITCH=01;CMD=%s;", On_Off.c_str() ) ; 
       }
       
       // ****************************************************
@@ -100,10 +102,17 @@ class _RFL_Protocol_EV1527 : public _RFL_Protocol_BaseClass {
       // ****************************************************
       else {
         unsigned long Switch = bitstream & 0xF ;
-        sprintf ( pbuffer, "20;%02X;%s;ID=%05X;SWITCH=%02X;CMD=ON;", PKSequenceNumber++, Device.c_str(), Id, Switch ) ; 
+        //sprintf ( pbuffer, "20;%02X;%s;ID=%05X;SWITCH=%02X;CMD=ON;", PKSequenceNumber++, Device.c_str(), Id, Switch ) ; 
+        sprintf ( pbuffer, "%s;ID=%05X;", Device.c_str(), Id ) ; 
+        sprintf ( pbuffer2, "SWITCH=%02X;CMD=ON;", Switch ) ; 
       }
  
-      Serial.println  (  pbuffer ) ;
+      //Serial.println  (  pbuffer ) ;
+      if ( Unknown_Device ( pbuffer ) ) return false ;
+      Serial.print   ( PreFix ) ;
+      Serial.print   ( pbuffer ) ;
+      Serial.println ( pbuffer2 ) ;
+      
       return true;
     }
     
@@ -118,7 +127,6 @@ class _RFL_Protocol_EV1527 : public _RFL_Protocol_BaseClass {
       unsigned long Mask ;
       bool          Zero ;
       int           uSec  = 300 ; 
-
       // ************************************
       // send the sequence a number of times
       // ************************************
@@ -131,10 +139,10 @@ class _RFL_Protocol_EV1527 : public _RFL_Protocol_BaseClass {
         // *************************
         // preamble
         // *************************
-        digitalWrite ( TRANSMIT_PIN, HIGH ) ;
-        delayMicroseconds (      uSec ) ;
-        digitalWrite ( TRANSMIT_PIN, LOW ) ;
-        delayMicroseconds ( 31 * uSec ) ;
+        digitalWrite      ( TRANSMIT_PIN, HIGH ) ;
+        delayMicroseconds (      uSec          ) ;
+        digitalWrite      ( TRANSMIT_PIN, LOW  ) ;
+        delayMicroseconds ( 31 * uSec          ) ;
         
         // *************************
         // 20 address bits + 4 data bits
@@ -142,23 +150,23 @@ class _RFL_Protocol_EV1527 : public _RFL_Protocol_BaseClass {
         for ( int i=0; i<NData; i++ ) {
           Zero = ( Data & Mask ) == 0 ;
           if ( Zero ) {
-            digitalWrite ( TRANSMIT_PIN, HIGH ) ;
-            delayMicroseconds (     uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, LOW ) ;
-            delayMicroseconds ( 3 * uSec ) ;
+            digitalWrite      ( TRANSMIT_PIN, HIGH ) ;
+            delayMicroseconds (     uSec           ) ;
+            digitalWrite      ( TRANSMIT_PIN, LOW  ) ;
+            delayMicroseconds ( 3 * uSec           ) ;
           } else {
-            digitalWrite ( TRANSMIT_PIN, HIGH ) ;
-            delayMicroseconds ( 3 * uSec ) ;
-            digitalWrite ( TRANSMIT_PIN, LOW ) ;
-            delayMicroseconds (     uSec ) ;
+            digitalWrite      ( TRANSMIT_PIN, HIGH ) ;
+            delayMicroseconds ( 3 * uSec           ) ;
+            digitalWrite      ( TRANSMIT_PIN, LOW  ) ;
+            delayMicroseconds (     uSec           ) ;
           }
-          
           // *************************
           // go to the next bit
           // *************************
           Mask = Mask >> 1 ;
         }
       }
+      return true ;
     }
 
     
