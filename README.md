@@ -9,8 +9,8 @@ Some ideas that Are implemented:
 - Compiling for the ESP32 (probably even the ESP8266 is good enough)
 - Optimizing the order of the plugins
 - Simplify and shorten the program
-- Register devices that are allowed to get no false positives
-- Automatic generate new Device-ID's, s o the Home Automation software can really get inbetween the controller and the device.
+- Register devices that are allowed, so we don't get any false positives
+- Automatic generate new Device-ID's, so the Home Automation software can really get inbetween the controller and the device.
 -
 
 Some ideas for the future
